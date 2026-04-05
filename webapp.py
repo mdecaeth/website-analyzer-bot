@@ -617,13 +617,20 @@ HTML_TEMPLATE = """
             document.getElementById('logoInput').placeholder = t.logoPlaceholder;
             document.getElementById('logoHint').textContent = t.logoHint;
             document.getElementById('analyzeBtn').textContent = t.analyze;
-            document.querySelector('.loading p').textContent = t.analyzing;
-            document.querySelector('#results .report-card:nth-child(1) h3').textContent = t.businessInfo;
-            document.querySelector('#logoCard h3').textContent = t.logo;
-            document.querySelector('#results .report-card:nth-child(3) h3').textContent = t.structure;
-            document.querySelector('#results .report-card:nth-child(4) h3').textContent = t.features;
-            document.querySelector('.prompt-header h3').textContent = t.promptTitle;
-            document.querySelector('.copy-btn').textContent = t.copy;
+            const loadingP = document.querySelector('.loading p');
+            if (loadingP) loadingP.textContent = t.analyzing;
+            const bizH3 = document.querySelector('#results .report-card:nth-child(1) h3');
+            if (bizH3) bizH3.textContent = t.businessInfo;
+            const logoH3 = document.querySelector('#logoCard h3');
+            if (logoH3) logoH3.textContent = t.logo;
+            const structH3 = document.querySelector('#results .report-card:nth-child(3) h3');
+            if (structH3) structH3.textContent = t.structure;
+            const featH3 = document.querySelector('#results .report-card:nth-child(4) h3');
+            if (featH3) featH3.textContent = t.features;
+            const promptH3 = document.querySelector('.prompt-header h3');
+            if (promptH3) promptH3.textContent = t.promptTitle;
+            const copyBtn = document.querySelector('.copy-btn');
+            if (copyBtn) copyBtn.textContent = t.copy;
             document.getElementById('toast').textContent = t.copied;
         }
 
