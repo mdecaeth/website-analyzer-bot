@@ -492,10 +492,15 @@ HTML_TEMPLATE = """
                 <input type="text" id="urlInput" placeholder="Inserisci l'URL del sito (es. stripe.com)">
                 <button id="analyzeBtn" onclick="analyzeWebsite()">Analizza</button>
             </div>
-            <div class="input-group" style="margin-top: 15px;">
-                <input type="text" id="logoInput" placeholder="URL logo manuale (opzionale)" style="font-size: 0.9rem;">
+            <div class="input-group" style="margin-top: 15px; flex-direction: column; align-items: flex-start;">
+                <label for="logoInput" id="logoLabel" style="color: #888; font-size: 0.9rem; margin-bottom: 8px;">Logo manuale (opzionale):</label>
+                <input type="file" id="logoInput" accept="image/*" style="font-size: 0.9rem; color: #888;">
+                <p style="color: #666; font-size: 0.8rem; margin-top: 8px;" id="logoHint">Se il rilevamento automatico non funziona, carica il logo qui</p>
+                <div id="logoPreview" style="display: none; margin-top: 10px;">
+                    <img id="logoPreviewImg" src="" alt="Preview" style="max-height: 60px; max-width: 150px; background: #fff; padding: 5px; border-radius: 5px;">
+                    <button type="button" id="clearLogo" style="margin-left: 10px; padding: 5px 10px; font-size: 0.8rem;">Rimuovi</button>
+                </div>
             </div>
-            <p style="color: #666; font-size: 0.8rem; margin-top: 8px;" id="logoHint">Se il rilevamento automatico del logo non funziona, inserisci l'URL qui</p>
         </div>
 
         <div class="loading" id="loading">
@@ -548,8 +553,9 @@ HTML_TEMPLATE = """
             it: {
                 subtitle: 'Analizza siti web e genera prompt perfetti per Lovable',
                 placeholder: "Inserisci l'URL del sito (es. stripe.com)",
-                logoPlaceholder: 'URL logo manuale (opzionale)',
-                logoHint: "Se il rilevamento automatico del logo non funziona, inserisci l'URL qui",
+                logoLabel: 'Logo manuale (opzionale):',
+                logoHint: 'Se il rilevamento automatico non funziona, carica il logo qui',
+                clearLogo: 'Rimuovi',
                 analyze: 'Analizza',
                 analyzing: 'Analisi in corso...',
                 errorUrl: 'Inserisci un URL valido',
@@ -576,8 +582,9 @@ HTML_TEMPLATE = """
             en: {
                 subtitle: 'Analyze websites and generate perfect prompts for Lovable',
                 placeholder: 'Enter website URL (e.g. stripe.com)',
-                logoPlaceholder: 'Manual logo URL (optional)',
-                logoHint: 'If automatic logo detection fails, enter the URL here',
+                logoLabel: 'Manual logo (optional):',
+                logoHint: 'If automatic detection fails, upload the logo here',
+                clearLogo: 'Remove',
                 analyze: 'Analyze',
                 analyzing: 'Analyzing...',
                 errorUrl: 'Please enter a valid URL',
@@ -614,8 +621,9 @@ HTML_TEMPLATE = """
             const t = translations[currentLang];
             document.getElementById('subtitle').textContent = t.subtitle;
             document.getElementById('urlInput').placeholder = t.placeholder;
-            document.getElementById('logoInput').placeholder = t.logoPlaceholder;
+            document.getElementById('logoLabel').textContent = t.logoLabel;
             document.getElementById('logoHint').textContent = t.logoHint;
+            document.getElementById('clearLogo').textContent = t.clearLogo;
             document.getElementById('analyzeBtn').textContent = t.analyze;
             const loadingP = document.querySelector('.loading p');
             if (loadingP) loadingP.textContent = t.analyzing;
@@ -634,10 +642,11 @@ HTML_TEMPLATE = """
             document.getElementById('toast').textContent = t.copied;
         }
 
+        let uploadedLogoData = null;
+
         async function analyzeWebsite() {
             const t = translations[currentLang];
             const url = document.getElementById('urlInput').value.trim();
-            const manualLogo = document.getElementById('logoInput').value.trim();
             if (!url) {
                 showError(t.errorUrl);
                 return;
@@ -652,7 +661,7 @@ HTML_TEMPLATE = """
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: url, lang: currentLang, manualLogo: manualLogo })
+                    body: JSON.stringify({ url: url, lang: currentLang, manualLogoData: uploadedLogoData })
                 });
 
                 const data = await response.json();
@@ -769,6 +778,28 @@ HTML_TEMPLATE = """
         });
         document.getElementById('langEn').addEventListener('click', function() {
             setLanguage('en');
+        });
+
+        // Logo file upload handler
+        document.getElementById('logoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    uploadedLogoData = event.target.result;
+                    document.getElementById('logoPreviewImg').src = uploadedLogoData;
+                    document.getElementById('logoPreview').style.display = 'flex';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Clear logo button
+        document.getElementById('clearLogo').addEventListener('click', function() {
+            uploadedLogoData = null;
+            document.getElementById('logoInput').value = '';
+            document.getElementById('logoPreview').style.display = 'none';
+            document.getElementById('logoPreviewImg').src = '';
         });
     </script>
 </body>
@@ -967,7 +998,25 @@ def generate_prompt(url, analysis, lang='it'):
 
 """
         if logo.get('found') and logo.get('url'):
-            prompt += f"""## LOGO E IDENTITA VISIVA
+            if logo.get('manual') and logo['url'].startswith('data:'):
+                # Logo caricato dall'utente (base64)
+                prompt += """## LOGO E IDENTITA VISIVA
+
+Il logo e stato fornito dall'utente (vedi immagine nel report sopra).
+
+ISTRUZIONI IMPORTANTI SUL LOGO:
+1. Analizza i colori presenti nel logo fornito
+2. Usa i colori del logo come BASE per tutta la palette del sito:
+   - Il colore PRIMARIO del sito deve essere il colore dominante del logo
+   - Il colore SECONDARIO deve essere un colore di accento presente nel logo
+   - I colori neutri (grigi, bianchi, neri) devono bilanciare la palette
+3. Mantieni coerenza visiva tra il logo e tutto il design del sito
+4. Il logo deve essere posizionato nell'header in modo prominente
+
+"""
+            else:
+                # Logo URL
+                prompt += f"""## LOGO E IDENTITA VISIVA
 
 URL del logo aziendale: {logo['url']}
 
@@ -1060,7 +1109,25 @@ Non e stato possibile estrarre il logo automaticamente. Usa una palette colori p
 
 """
         if logo.get('found') and logo.get('url'):
-            prompt += f"""## LOGO AND VISUAL IDENTITY
+            if logo.get('manual') and logo['url'].startswith('data:'):
+                # User uploaded logo (base64)
+                prompt += """## LOGO AND VISUAL IDENTITY
+
+The logo was provided by the user (see image in the report above).
+
+IMPORTANT LOGO INSTRUCTIONS:
+1. Analyze the colors present in the provided logo
+2. Use the logo colors as the BASE for the entire site palette:
+   - The PRIMARY color should be the dominant color from the logo
+   - The SECONDARY color should be an accent color from the logo
+   - Neutral colors (grays, whites, blacks) should balance the palette
+3. Maintain visual consistency between the logo and the entire site design
+4. The logo should be prominently positioned in the header
+
+"""
+            else:
+                # Logo URL
+                prompt += f"""## LOGO AND VISUAL IDENTITY
 
 Company logo URL: {logo['url']}
 
@@ -1155,7 +1222,7 @@ def analyze():
     data = request.json
     url = data.get('url', '')
     lang = data.get('lang', 'it')
-    manual_logo = data.get('manualLogo', '').strip()
+    manual_logo_data = data.get('manualLogoData', None)
 
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
@@ -1170,11 +1237,10 @@ def analyze():
     # Estrai informazioni sul business
     business_info = extract_business_info(soup, url)
 
-    # Trova il logo: usa manuale se fornito, altrimenti auto-detect
-    if manual_logo:
-        if not manual_logo.startswith(('http://', 'https://')):
-            manual_logo = urljoin(url, manual_logo)
-        logo_info = {'url': manual_logo, 'found': True, 'manual': True}
+    # Trova il logo: usa manuale se fornito (base64), altrimenti auto-detect
+    if manual_logo_data:
+        # Logo caricato dall'utente come base64
+        logo_info = {'url': manual_logo_data, 'found': True, 'manual': True}
     else:
         logo_info = find_logo(soup, url)
         logo_info['manual'] = False
