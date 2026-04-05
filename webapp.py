@@ -393,14 +393,47 @@ HTML_TEMPLATE = """
         .error.active {
             display: block;
         }
+
+        .lang-switch {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .lang-btn {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #888;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .lang-btn.active {
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            border-color: transparent;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Website Analyzer Bot</h1>
-            <p class="subtitle">Analizza siti web e genera prompt perfetti per Lovable</p>
+            <p class="subtitle" id="subtitle">Analizza siti web e genera prompt perfetti per Lovable</p>
         </header>
+
+        <div class="lang-switch">
+            <button class="lang-btn active" id="langIt" onclick="setLanguage('it')">Italiano</button>
+            <button class="lang-btn" id="langEn" onclick="setLanguage('en')">English</button>
+        </div>
 
         <div class="input-section">
             <div class="input-group">
@@ -453,10 +486,87 @@ HTML_TEMPLATE = """
     <div class="copied-toast" id="toast">Prompt copiato!</div>
 
     <script>
+        let currentLang = 'it';
+
+        const translations = {
+            it: {
+                subtitle: 'Analizza siti web e genera prompt perfetti per Lovable',
+                placeholder: "Inserisci l'URL del sito (es. stripe.com)",
+                analyze: 'Analizza',
+                analyzing: 'Analisi in corso...',
+                errorUrl: 'Inserisci un URL valido',
+                errorConnection: 'Errore di connessione',
+                businessInfo: 'Informazioni Business',
+                logoFound: 'Logo Trovato',
+                logoColors: 'I colori del logo verranno usati come base per la palette del sito',
+                structure: 'Struttura Rilevata',
+                features: 'Funzionalita Rilevate',
+                promptTitle: 'Prompt per Lovable',
+                copy: 'Copia Prompt',
+                copied: 'Prompt copiato!',
+                company: 'Azienda',
+                sector: 'Settore',
+                description: 'Descrizione',
+                services: 'Servizi/Sezioni',
+                notAvailable: 'Informazioni non disponibili',
+                sections: 'Sezioni',
+                images: 'Immagini',
+                buttons: 'Pulsanti'
+            },
+            en: {
+                subtitle: 'Analyze websites and generate perfect prompts for Lovable',
+                placeholder: 'Enter website URL (e.g. stripe.com)',
+                analyze: 'Analyze',
+                analyzing: 'Analyzing...',
+                errorUrl: 'Please enter a valid URL',
+                errorConnection: 'Connection error',
+                businessInfo: 'Business Information',
+                logoFound: 'Logo Found',
+                logoColors: 'Logo colors will be used as the base for the site palette',
+                structure: 'Detected Structure',
+                features: 'Detected Features',
+                promptTitle: 'Prompt for Lovable',
+                copy: 'Copy Prompt',
+                copied: 'Prompt copied!',
+                company: 'Company',
+                sector: 'Industry',
+                description: 'Description',
+                services: 'Services/Sections',
+                notAvailable: 'Information not available',
+                sections: 'Sections',
+                images: 'Images',
+                buttons: 'Buttons'
+            }
+        };
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('langIt').classList.toggle('active', lang === 'it');
+            document.getElementById('langEn').classList.toggle('active', lang === 'en');
+            updateUI();
+        }
+
+        function updateUI() {
+            const t = translations[currentLang];
+            document.getElementById('subtitle').textContent = t.subtitle;
+            document.getElementById('urlInput').placeholder = t.placeholder;
+            document.getElementById('analyzeBtn').textContent = t.analyze;
+            document.querySelector('.loading p').textContent = t.analyzing;
+            document.querySelector('#results .report-card:nth-child(1) h3').textContent = t.businessInfo;
+            document.querySelector('#logoCard h3').textContent = t.logoFound;
+            document.querySelector('#logoCard p').textContent = t.logoColors;
+            document.querySelector('#results .report-card:nth-child(3) h3').textContent = t.structure;
+            document.querySelector('#results .report-card:nth-child(4) h3').textContent = t.features;
+            document.querySelector('.prompt-header h3').textContent = t.promptTitle;
+            document.querySelector('.copy-btn').textContent = t.copy;
+            document.getElementById('toast').textContent = t.copied;
+        }
+
         async function analyzeWebsite() {
+            const t = translations[currentLang];
             const url = document.getElementById('urlInput').value.trim();
             if (!url) {
-                showError('Inserisci un URL valido');
+                showError(t.errorUrl);
                 return;
             }
 
@@ -469,7 +579,7 @@ HTML_TEMPLATE = """
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: url })
+                    body: JSON.stringify({ url: url, lang: currentLang })
                 });
 
                 const data = await response.json();
@@ -480,7 +590,7 @@ HTML_TEMPLATE = """
                     displayResults(data);
                 }
             } catch (err) {
-                showError('Errore di connessione');
+                showError(translations[currentLang].errorConnection);
             }
 
             document.getElementById('loading').classList.remove('active');
@@ -494,18 +604,20 @@ HTML_TEMPLATE = """
         }
 
         function displayResults(data) {
+            const t = translations[currentLang];
+
             // Business Info
             const businessInfo = document.getElementById('businessInfo');
             let businessHtml = '';
             if (data.business) {
-                if (data.business.name) businessHtml += `<div><strong>Azienda:</strong> ${data.business.name}</div>`;
-                if (data.business.industry) businessHtml += `<div><strong>Settore:</strong> ${data.business.industry}</div>`;
-                if (data.business.description) businessHtml += `<div><strong>Descrizione:</strong> ${data.business.description}</div>`;
+                if (data.business.name) businessHtml += `<div><strong>${t.company}:</strong> ${data.business.name}</div>`;
+                if (data.business.industry) businessHtml += `<div><strong>${t.sector}:</strong> ${data.business.industry}</div>`;
+                if (data.business.description) businessHtml += `<div><strong>${t.description}:</strong> ${data.business.description}</div>`;
                 if (data.business.services && data.business.services.length > 0) {
-                    businessHtml += `<div><strong>Servizi/Sezioni:</strong> ${data.business.services.join(', ')}</div>`;
+                    businessHtml += `<div><strong>${t.services}:</strong> ${data.business.services.join(', ')}</div>`;
                 }
             }
-            businessInfo.innerHTML = businessHtml || '<div style="color:#888">Informazioni non disponibili</div>';
+            businessInfo.innerHTML = businessHtml || `<div style="color:#888">${t.notAvailable}</div>`;
 
             // Logo
             const logoCard = document.getElementById('logoCard');
@@ -522,15 +634,15 @@ HTML_TEMPLATE = """
             stats.innerHTML = `
                 <div class="stat-item">
                     <div class="stat-value">${data.structure.sections}</div>
-                    <div class="stat-label">Sezioni</div>
+                    <div class="stat-label">${t.sections}</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">${data.structure.images}</div>
-                    <div class="stat-label">Immagini</div>
+                    <div class="stat-label">${t.images}</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">${data.structure.buttons}</div>
-                    <div class="stat-label">Pulsanti</div>
+                    <div class="stat-label">${t.buttons}</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">${data.structure.forms}</div>
@@ -667,72 +779,97 @@ def extract_navigation(soup):
                 nav_items.append(text)
     return nav_items
 
-def generate_business_narrative(business, url):
+def generate_business_narrative(business, url, lang='it'):
     """Genera una descrizione narrativa e coesa del business."""
-    name = business.get('name', 'L\'azienda')
-    industry = business.get('industry', 'servizi professionali')
+    name = business.get('name', 'L\'azienda' if lang == 'it' else 'The company')
+    industry = business.get('industry', 'servizi professionali' if lang == 'it' else 'professional services')
     description = business.get('description', '')
     tagline = business.get('tagline', '')
     services = business.get('services', [])
 
-    # Costruisci il paragrafo narrativo
-    narrative = f"{name} e un'azienda che opera nel settore {industry}. "
+    if lang == 'it':
+        narrative = f"{name} e un'azienda che opera nel settore {industry}. "
+        if description:
+            narrative += f"{description} "
+        if tagline and tagline != name:
+            narrative += f"Il loro motto/messaggio principale e: \"{tagline}\". "
+        if services:
+            services_clean = [s for s in services if len(s) > 2 and s.lower() not in ['home', 'menu', 'contact']][:5]
+            if services_clean:
+                narrative += f"L'azienda offre i seguenti servizi/sezioni: {', '.join(services_clean)}. "
 
-    if description:
-        narrative += f"{description} "
+        industry_context = {
+            'veterinario': "Il sito deve trasmettere cura, professionalita medica e amore per gli animali. Il tono deve essere rassicurante per i proprietari di animali domestici, mostrando competenza veterinaria e empatia.",
+            'ristorante': "Il sito deve stimolare l'appetito e trasmettere l'atmosfera del locale. Deve mostrare il menu in modo appetitoso e facilitare le prenotazioni.",
+            'e-commerce': "Il sito deve facilitare gli acquisti, mostrare i prodotti in modo attraente e costruire fiducia per le transazioni online.",
+            'studio legale': "Il sito deve comunicare autorevevolezza, competenza legale e riservatezza. Il tono deve essere professionale e ispirare fiducia.",
+            'agenzia marketing': "Il sito deve essere creativo, moderno e dimostrare le competenze dell'agenzia attraverso il design stesso.",
+            'studio medico': "Il sito deve trasmettere professionalita medica, igiene e cura del paziente. Deve essere facile prenotare appuntamenti.",
+            'immobiliare': "Il sito deve mostrare le proprieta in modo attraente e facilitare la ricerca di immobili. Deve ispirare fiducia nelle transazioni.",
+            'fitness/palestra': "Il sito deve motivare e ispirare, mostrando energia e risultati. Deve facilitare l'iscrizione e mostrare i servizi offerti.",
+            'hotel/hospitality': "Il sito deve far sognare il soggiorno, mostrare le camere e i servizi, e rendere facile la prenotazione.",
+            'educazione': "Il sito deve trasmettere competenza educativa e facilitare l'iscrizione ai corsi.",
+            'tecnologia/software': "Il sito deve essere moderno, mostrare le funzionalita del prodotto e facilitare la conversione.",
+            'consulenza': "Il sito deve trasmettere esperienza e competenza, mostrando risultati e casi di successo.",
+            'architettura/design': "Il sito deve essere visivamente impressionante, mostrando il portfolio di progetti in modo elegante.",
+            'fotografo': "Il sito deve mettere in risalto le foto come protagoniste, con un design minimale che non distragga.",
+            'salone bellezza': "Il sito deve trasmettere eleganza, cura e benessere. Deve mostrare i trattamenti e facilitare le prenotazioni.",
+        }
+        default_context = "Il sito deve comunicare professionalita, affidabilita e competenza nel proprio settore."
+    else:
+        narrative = f"{name} is a company operating in the {industry} sector. "
+        if description:
+            narrative += f"{description} "
+        if tagline and tagline != name:
+            narrative += f"Their main message/tagline is: \"{tagline}\". "
+        if services:
+            services_clean = [s for s in services if len(s) > 2 and s.lower() not in ['home', 'menu', 'contact']][:5]
+            if services_clean:
+                narrative += f"The company offers the following services/sections: {', '.join(services_clean)}. "
 
-    if tagline and tagline != name:
-        narrative += f"Il loro motto/messaggio principale e: \"{tagline}\". "
-
-    if services:
-        services_clean = [s for s in services if len(s) > 2 and s.lower() not in ['home', 'menu', 'contact']][:5]
-        if services_clean:
-            narrative += f"L'azienda offre i seguenti servizi/sezioni: {', '.join(services_clean)}. "
-
-    # Aggiungi contesto sul tipo di comunicazione
-    industry_context = {
-        'veterinario': "Il sito deve trasmettere cura, professionalita medica e amore per gli animali. Il tono deve essere rassicurante per i proprietari di animali domestici, mostrando competenza veterinaria e empatia.",
-        'ristorante': "Il sito deve stimolare l'appetito e trasmettere l'atmosfera del locale. Deve mostrare il menu in modo appetitoso e facilitare le prenotazioni.",
-        'e-commerce': "Il sito deve facilitare gli acquisti, mostrare i prodotti in modo attraente e costruire fiducia per le transazioni online.",
-        'studio legale': "Il sito deve comunicare autorevevolezza, competenza legale e riservatezza. Il tono deve essere professionale e ispirare fiducia.",
-        'agenzia marketing': "Il sito deve essere creativo, moderno e dimostrare le competenze dell'agenzia attraverso il design stesso.",
-        'studio medico': "Il sito deve trasmettere professionalita medica, igiene e cura del paziente. Deve essere facile prenotare appuntamenti.",
-        'immobiliare': "Il sito deve mostrare le proprieta in modo attraente e facilitare la ricerca di immobili. Deve ispirare fiducia nelle transazioni.",
-        'fitness/palestra': "Il sito deve motivare e ispirare, mostrando energia e risultati. Deve facilitare l'iscrizione e mostrare i servizi offerti.",
-        'hotel/hospitality': "Il sito deve far sognare il soggiorno, mostrare le camere e i servizi, e rendere facile la prenotazione.",
-        'educazione': "Il sito deve trasmettere competenza educativa e facilitare l'iscrizione ai corsi.",
-        'tecnologia/software': "Il sito deve essere moderno, mostrare le funzionalita del prodotto e facilitare la conversione.",
-        'consulenza': "Il sito deve trasmettere esperienza e competenza, mostrando risultati e casi di successo.",
-        'architettura/design': "Il sito deve essere visivamente impressionante, mostrando il portfolio di progetti in modo elegante.",
-        'fotografo': "Il sito deve mettere in risalto le foto come protagoniste, con un design minimale che non distragga.",
-        'salone bellezza': "Il sito deve trasmettere eleganza, cura e benessere. Deve mostrare i trattamenti e facilitare le prenotazioni.",
-    }
+        industry_context = {
+            'veterinario': "The website should convey care, medical professionalism and love for animals. The tone should be reassuring for pet owners, showing veterinary expertise and empathy.",
+            'ristorante': "The website should stimulate appetite and convey the restaurant's atmosphere. It should showcase the menu appetizingly and make reservations easy.",
+            'e-commerce': "The website should facilitate purchases, showcase products attractively and build trust for online transactions.",
+            'studio legale': "The website should communicate authority, legal expertise and confidentiality. The tone should be professional and inspire trust.",
+            'agenzia marketing': "The website should be creative, modern and demonstrate the agency's skills through the design itself.",
+            'studio medico': "The website should convey medical professionalism, hygiene and patient care. Booking appointments should be easy.",
+            'immobiliare': "The website should showcase properties attractively and facilitate property search. It should inspire trust in transactions.",
+            'fitness/palestra': "The website should motivate and inspire, showing energy and results. It should make sign-ups easy and showcase services.",
+            'hotel/hospitality': "The website should make visitors dream about their stay, showcase rooms and services, and make booking easy.",
+            'educazione': "The website should convey educational expertise and make course enrollment easy.",
+            'tecnologia/software': "The website should be modern, showcase product features and facilitate conversion.",
+            'consulenza': "The website should convey experience and expertise, showing results and success stories.",
+            'architettura/design': "The website should be visually impressive, showcasing the project portfolio elegantly.",
+            'fotografo': "The website should highlight photos as the main feature, with a minimal design that doesn't distract.",
+            'salone bellezza': "The website should convey elegance, care and wellness. It should showcase treatments and make booking easy.",
+        }
+        default_context = "The website should communicate professionalism, reliability and expertise in its sector."
 
     if industry in industry_context:
         narrative += industry_context[industry]
     else:
-        narrative += "Il sito deve comunicare professionalita, affidabilita e competenza nel proprio settore."
+        narrative += default_context
 
     return narrative
 
-def generate_prompt(url, analysis):
+def generate_prompt(url, analysis, lang='it'):
     business = analysis.get('business', {})
     logo = analysis.get('logo', {})
 
     # Genera la descrizione narrativa del business
-    business_narrative = generate_business_narrative(business, url)
+    business_narrative = generate_business_narrative(business, url, lang)
 
-    prompt = f"""Crea un sito web moderno e professionale per la seguente azienda. Il design deve essere significativamente migliore rispetto al sito originale ({url}) in termini di UI/UX, estetica e funzionalita.
+    if lang == 'it':
+        prompt = f"""Crea un sito web moderno e professionale per la seguente azienda. Il design deve essere significativamente migliore rispetto al sito originale ({url}) in termini di UI/UX, estetica e funzionalita.
 
 ## CHI E IL CLIENTE - DESCRIZIONE DEL BUSINESS
 
 {business_narrative}
 
 """
-
-    # Sezione logo - SEMPRE inclusa se trovato
-    if logo.get('found') and logo.get('url'):
-        prompt += f"""## LOGO E IDENTITA VISIVA
+        if logo.get('found') and logo.get('url'):
+            prompt += f"""## LOGO E IDENTITA VISIVA
 
 URL del logo aziendale: {logo['url']}
 
@@ -746,39 +883,37 @@ ISTRUZIONI IMPORTANTI SUL LOGO:
 4. Il logo deve essere posizionato nell'header in modo prominente
 
 """
-    else:
-        prompt += """## IDENTITA VISIVA
+        else:
+            prompt += """## IDENTITA VISIVA
 
 Non e stato possibile estrarre il logo automaticamente. Usa una palette colori professionale e moderna adatta al settore dell'azienda.
 
 """
-
-    prompt += f"""## TIPO DI SITO
+        prompt += f"""## TIPO DI SITO
 {analysis['purpose']}
 
+## STRUTTURA RICHIESTA
 """
+        s = analysis['structure']
+        if s['has_header']:
+            prompt += "- Header con logo a sinistra e navigazione pulita\n"
+        if s['has_hero']:
+            prompt += "- Hero section d'impatto con CTA chiara\n"
+        prompt += f"- {max(s['sections'], 3)} sezioni di contenuto ben organizzate\n"
+        if s['forms'] > 0:
+            prompt += f"- {s['forms']} form con validazione e UX ottimizzata\n"
+        if s['has_footer']:
+            prompt += "- Footer completo con contatti e link utili\n"
 
-    prompt += "## STRUTTURA RICHIESTA\n"
-    s = analysis['structure']
-    if s['has_header']:
-        prompt += "- Header con logo a sinistra e navigazione pulita\n"
-    if s['has_hero']:
-        prompt += "- Hero section d'impatto con CTA chiara\n"
-    prompt += f"- {max(s['sections'], 3)} sezioni di contenuto ben organizzate\n"
-    if s['forms'] > 0:
-        prompt += f"- {s['forms']} form con validazione e UX ottimizzata\n"
-    if s['has_footer']:
-        prompt += "- Footer completo con contatti e link utili\n"
+        if analysis['nav_items']:
+            prompt += f"\n## NAVIGAZIONE\nVoci menu suggerite: {', '.join(analysis['nav_items'][:6])}\n"
 
-    if analysis['nav_items']:
-        prompt += f"\n## NAVIGAZIONE\nVoci menu suggerite: {', '.join(analysis['nav_items'][:6])}\n"
+        if analysis['features']:
+            prompt += "\n## FUNZIONALITA DA INCLUDERE\n"
+            for f in analysis['features']:
+                prompt += f"- {f}\n"
 
-    if analysis['features']:
-        prompt += "\n## FUNZIONALITA DA INCLUDERE\n"
-        for f in analysis['features']:
-            prompt += f"- {f}\n"
-
-    prompt += """
+        prompt += """
 ## DESIGN E STILE
 - IMPORTANTE: La palette colori DEVE essere basata sui colori estratti dal logo (vedi sezione LOGO E IDENTITA VISIVA sopra)
 - Typography: font sans-serif professionale, gerarchia chiara (titoli bold, body leggibile)
@@ -818,6 +953,99 @@ Non e stato possibile estrarre il logo automaticamente. Usa una palette colori p
    - Animazioni piu fluide e professionali
    - UX piu intuitiva e user-friendly
 """
+    else:  # English
+        prompt = f"""Create a modern and professional website for the following company. The design should be significantly better than the original website ({url}) in terms of UI/UX, aesthetics and functionality.
+
+## CLIENT DESCRIPTION - BUSINESS OVERVIEW
+
+{business_narrative}
+
+"""
+        if logo.get('found') and logo.get('url'):
+            prompt += f"""## LOGO AND VISUAL IDENTITY
+
+Company logo URL: {logo['url']}
+
+IMPORTANT LOGO INSTRUCTIONS:
+1. Analyze the colors present in the logo at this URL
+2. Use the logo colors as the BASE for the entire site palette:
+   - The PRIMARY color should be the dominant color from the logo
+   - The SECONDARY color should be an accent color from the logo (or a harmonious complement)
+   - Neutral colors (grays, whites, blacks) should balance the palette
+3. Maintain visual consistency between the logo and the entire site design
+4. The logo should be prominently positioned in the header
+
+"""
+        else:
+            prompt += """## VISUAL IDENTITY
+
+Could not automatically extract the logo. Use a professional and modern color palette suitable for the company's industry.
+
+"""
+        prompt += f"""## WEBSITE TYPE
+{analysis['purpose']}
+
+## REQUIRED STRUCTURE
+"""
+        s = analysis['structure']
+        if s['has_header']:
+            prompt += "- Header with logo on the left and clean navigation\n"
+        if s['has_hero']:
+            prompt += "- Impactful hero section with clear CTA\n"
+        prompt += f"- {max(s['sections'], 3)} well-organized content sections\n"
+        if s['forms'] > 0:
+            prompt += f"- {s['forms']} form(s) with validation and optimized UX\n"
+        if s['has_footer']:
+            prompt += "- Complete footer with contacts and useful links\n"
+
+        if analysis['nav_items']:
+            prompt += f"\n## NAVIGATION\nSuggested menu items: {', '.join(analysis['nav_items'][:6])}\n"
+
+        if analysis['features']:
+            prompt += "\n## FEATURES TO INCLUDE\n"
+            for f in analysis['features']:
+                prompt += f"- {f}\n"
+
+        prompt += """
+## DESIGN AND STYLE
+- IMPORTANT: The color palette MUST be based on colors extracted from the logo (see LOGO AND VISUAL IDENTITY section above)
+- Typography: professional sans-serif font, clear hierarchy (bold titles, readable body)
+- Generous spacing (whitespace) for a premium look
+- Soft border radius (8-12px) for a modern appearance
+- Subtle shadows for depth and elevation
+- Responsive layout (mobile-first)
+- High-quality images with overlays for text readability
+
+## ANIMATIONS AND MICRO-INTERACTIONS
+- Smooth transitions (300ms ease-out) on hover and focus
+- Scroll-triggered entrance animations (fade-in-up, stagger for lists)
+- Button micro-interactions (scale 1.02-1.05, shadow elevation)
+- Smooth scroll between sections
+- Loading states with skeleton screens
+
+## UX AND ACCESSIBILITY
+- Immediate visual feedback on every interaction
+- Forms with inline validation and clear error messages
+- Clear and well-positioned CTAs
+- Accessible contrast (WCAG AA minimum)
+- Visible focus states for keyboard navigation
+- Mobile-friendly with adequate touch targets (min 44px)
+
+## RECOMMENDED TECH STACK
+- React + TypeScript
+- Tailwind CSS for styling
+- Framer Motion for animations
+- Reusable and well-organized components
+
+## FINAL NOTES
+1. DO NOT copy the original design, use it as INSPIRATION to create something BETTER
+2. REMEMBER: site colors should derive from the company logo to maintain brand consistency
+3. Significantly improve upon the original:
+   - Cleaner, more modern and minimal UI
+   - Better visual hierarchy and readability
+   - Smoother and more professional animations
+   - More intuitive and user-friendly UX
+"""
     return prompt
 
 @app.route('/')
@@ -828,13 +1056,15 @@ def index():
 def analyze():
     data = request.json
     url = data.get('url', '')
+    lang = data.get('lang', 'it')
 
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
 
     html = fetch_website(url)
     if not html:
-        return jsonify({'error': 'Impossibile caricare il sito'})
+        error_msg = 'Impossibile caricare il sito' if lang == 'it' else 'Unable to load website'
+        return jsonify({'error': error_msg})
 
     soup = BeautifulSoup(html, 'html.parser')
 
@@ -858,7 +1088,7 @@ def analyze():
         'logo': logo_info
     }
 
-    analysis['prompt'] = generate_prompt(url, analysis)
+    analysis['prompt'] = generate_prompt(url, analysis, lang)
 
     return jsonify(analysis)
 
