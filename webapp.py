@@ -492,6 +492,10 @@ HTML_TEMPLATE = """
                 <input type="text" id="urlInput" placeholder="Inserisci l'URL del sito (es. stripe.com)">
                 <button id="analyzeBtn" onclick="analyzeWebsite()">Analizza</button>
             </div>
+            <div class="input-group" style="margin-top: 15px;">
+                <input type="text" id="logoInput" placeholder="URL logo manuale (opzionale)" style="font-size: 0.9rem;">
+            </div>
+            <p style="color: #666; font-size: 0.8rem; margin-top: 8px;" id="logoHint">Se il rilevamento automatico del logo non funziona, inserisci l'URL qui</p>
         </div>
 
         <div class="loading" id="loading">
@@ -544,6 +548,8 @@ HTML_TEMPLATE = """
             it: {
                 subtitle: 'Analizza siti web e genera prompt perfetti per Lovable',
                 placeholder: "Inserisci l'URL del sito (es. stripe.com)",
+                logoPlaceholder: 'URL logo manuale (opzionale)',
+                logoHint: "Se il rilevamento automatico del logo non funziona, inserisci l'URL qui",
                 analyze: 'Analizza',
                 analyzing: 'Analisi in corso...',
                 errorUrl: 'Inserisci un URL valido',
@@ -551,6 +557,7 @@ HTML_TEMPLATE = """
                 businessInfo: 'Informazioni Business',
                 logo: 'Logo',
                 logoFound: 'I colori del logo verranno usati come base per la palette del sito',
+                logoManual: 'Logo (inserito manualmente)',
                 logoNotFound: 'Logo non trovato',
                 structure: 'Struttura Rilevata',
                 features: 'Funzionalita Rilevate',
@@ -569,6 +576,8 @@ HTML_TEMPLATE = """
             en: {
                 subtitle: 'Analyze websites and generate perfect prompts for Lovable',
                 placeholder: 'Enter website URL (e.g. stripe.com)',
+                logoPlaceholder: 'Manual logo URL (optional)',
+                logoHint: 'If automatic logo detection fails, enter the URL here',
                 analyze: 'Analyze',
                 analyzing: 'Analyzing...',
                 errorUrl: 'Please enter a valid URL',
@@ -576,6 +585,7 @@ HTML_TEMPLATE = """
                 businessInfo: 'Business Information',
                 logo: 'Logo',
                 logoFound: 'Logo colors will be used as the base for the site palette',
+                logoManual: 'Logo (manually entered)',
                 logoNotFound: 'Logo not found',
                 structure: 'Detected Structure',
                 features: 'Detected Features',
@@ -604,6 +614,8 @@ HTML_TEMPLATE = """
             const t = translations[currentLang];
             document.getElementById('subtitle').textContent = t.subtitle;
             document.getElementById('urlInput').placeholder = t.placeholder;
+            document.getElementById('logoInput').placeholder = t.logoPlaceholder;
+            document.getElementById('logoHint').textContent = t.logoHint;
             document.getElementById('analyzeBtn').textContent = t.analyze;
             document.querySelector('.loading p').textContent = t.analyzing;
             document.querySelector('#results .report-card:nth-child(1) h3').textContent = t.businessInfo;
@@ -618,6 +630,7 @@ HTML_TEMPLATE = """
         async function analyzeWebsite() {
             const t = translations[currentLang];
             const url = document.getElementById('urlInput').value.trim();
+            const manualLogo = document.getElementById('logoInput').value.trim();
             if (!url) {
                 showError(t.errorUrl);
                 return;
@@ -632,7 +645,7 @@ HTML_TEMPLATE = """
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: url, lang: currentLang })
+                    body: JSON.stringify({ url: url, lang: currentLang, manualLogo: manualLogo })
                 });
 
                 const data = await response.json();
@@ -675,9 +688,12 @@ HTML_TEMPLATE = """
             // Logo
             const logoImg = document.getElementById('logoImg');
             const logoText = document.getElementById('logoText');
+            const logoCard = document.getElementById('logoCard');
+            const logoTitle = logoCard.querySelector('h3');
             if (data.logo && data.logo.found && data.logo.url) {
                 logoImg.src = data.logo.url;
                 logoImg.style.display = 'block';
+                logoTitle.textContent = data.logo.manual ? t.logoManual : t.logo;
                 logoImg.onerror = function() {
                     this.style.display = 'none';
                     logoText.textContent = t.logoNotFound + ' - ' + (currentLang === 'it' ? 'impossibile caricare immagine' : 'unable to load image');
@@ -687,7 +703,8 @@ HTML_TEMPLATE = """
                 logoText.style.color = '#888';
             } else {
                 logoImg.style.display = 'none';
-                logoText.textContent = t.logoNotFound;
+                logoTitle.textContent = t.logo;
+                logoText.textContent = t.logoNotFound + ' - ' + (currentLang === 'it' ? 'prova a inserire manualmente l\'URL' : 'try entering the URL manually');
                 logoText.style.color = '#e74c3c';
             }
 
@@ -1123,6 +1140,7 @@ def analyze():
     data = request.json
     url = data.get('url', '')
     lang = data.get('lang', 'it')
+    manual_logo = data.get('manualLogo', '').strip()
 
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
@@ -1137,8 +1155,14 @@ def analyze():
     # Estrai informazioni sul business
     business_info = extract_business_info(soup, url)
 
-    # Trova il logo
-    logo_info = find_logo(soup, url)
+    # Trova il logo: usa manuale se fornito, altrimenti auto-detect
+    if manual_logo:
+        if not manual_logo.startswith(('http://', 'https://')):
+            manual_logo = urljoin(url, manual_logo)
+        logo_info = {'url': manual_logo, 'found': True, 'manual': True}
+    else:
+        logo_info = find_logo(soup, url)
+        logo_info['manual'] = False
 
     analysis = {
         'url': url,
