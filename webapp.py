@@ -483,8 +483,8 @@ HTML_TEMPLATE = """
         </header>
 
         <div class="lang-switch">
-            <button class="lang-btn active" id="langIt" onclick="setLanguage('it')">Italiano</button>
-            <button class="lang-btn" id="langEn" onclick="setLanguage('en')">English</button>
+            <button type="button" class="lang-btn active" id="langIt">Italiano</button>
+            <button type="button" class="lang-btn" id="langEn">English</button>
         </div>
 
         <div class="input-section">
@@ -761,6 +761,14 @@ HTML_TEMPLATE = """
 
         document.getElementById('urlInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') analyzeWebsite();
+        });
+
+        // Language switch event listeners
+        document.getElementById('langIt').addEventListener('click', function() {
+            setLanguage('it');
+        });
+        document.getElementById('langEn').addEventListener('click', function() {
+            setLanguage('en');
         });
     </script>
 </body>
