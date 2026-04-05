@@ -711,7 +711,7 @@ HTML_TEMPLATE = """
             } else {
                 logoImg.style.display = 'none';
                 logoTitle.textContent = t.logo;
-                logoText.textContent = t.logoNotFound + ' - ' + (currentLang === 'it' ? 'prova a inserire manualmente l\'URL' : 'try entering the URL manually');
+                logoText.textContent = t.logoNotFound + ' - ' + (currentLang === 'it' ? "prova a inserire manualmente l'URL" : 'try entering the URL manually');
                 logoText.style.color = '#e74c3c';
             }
 
