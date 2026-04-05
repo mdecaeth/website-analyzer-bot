@@ -64,25 +64,30 @@ def extract_business_info(soup, url):
 
     # Determina l'industria basandosi su keywords
     html_lower = str(soup).lower()
-    industries = {
-        'veterinario': ['veterinar', 'pet', 'animal', 'clinic', 'vet ', 'cane', 'gatto', 'animali'],
-        'ristorante': ['restaurant', 'menu', 'food', 'cuisine', 'ristorante', 'cucina', 'chef'],
-        'e-commerce': ['shop', 'cart', 'buy', 'product', 'store', 'acquista', 'carrello'],
-        'studio legale': ['law', 'legal', 'attorney', 'avvocato', 'legale', 'studio legale'],
-        'agenzia marketing': ['marketing', 'agency', 'digital', 'seo', 'social media', 'agenzia'],
-        'studio medico': ['doctor', 'medical', 'health', 'clinic', 'medico', 'salute', 'pazient'],
-        'immobiliare': ['real estate', 'property', 'immobil', 'casa', 'appartament', 'affitto'],
-        'fitness/palestra': ['gym', 'fitness', 'workout', 'training', 'palestra', 'allenamento'],
-        'hotel/hospitality': ['hotel', 'booking', 'room', 'hospitality', 'prenotazion', 'camera'],
-        'educazione': ['school', 'education', 'course', 'learn', 'scuola', 'corso', 'formazione'],
-        'tecnologia/software': ['software', 'tech', 'app', 'platform', 'saas', 'solution'],
-        'consulenza': ['consult', 'advisory', 'business', 'consulen', 'servizi'],
-        'architettura/design': ['architect', 'design', 'interior', 'architettura', 'progett'],
-        'fotografo': ['photo', 'photography', 'photographer', 'foto', 'shooting'],
-        'salone bellezza': ['salon', 'beauty', 'hair', 'spa', 'wellness', 'bellezza', 'parrucchier'],
-    }
 
-    for industry, keywords in industries.items():
+    # Industries ordinate per specificita (le piu specifiche prima)
+    # Cosi "barbershop" viene riconosciuto prima di "shop" (e-commerce)
+    industries = [
+        ('barbiere', ['barber', 'barbershop', 'haircut', 'shave', 'fade', 'trim', 'beard', 'grooming']),
+        ('parrucchiere/salone', ['salon', 'hair salon', 'hairdress', 'hairstyl', 'parrucchier', 'acconciatur', 'capelli', 'taglio', 'piega']),
+        ('salone bellezza/spa', ['beauty', 'spa', 'wellness', 'nail', 'massage', 'facial', 'bellezza', 'estetica', 'manicure', 'pedicure']),
+        ('veterinario', ['veterinar', 'vet clinic', 'animal hospital', 'pet clinic', 'cane', 'gatto', 'animali domestici']),
+        ('ristorante', ['restaurant', 'ristorante', 'trattoria', 'pizzeria', 'cuisine', 'cucina', 'chef', 'menu', 'reservation', 'prenotazione tavolo']),
+        ('studio legale', ['law firm', 'lawyer', 'attorney', 'legal', 'avvocato', 'studio legale', 'diritto']),
+        ('studio medico', ['doctor', 'medical', 'physician', 'clinic', 'medico', 'dottore', 'ambulatorio', 'pazient']),
+        ('fitness/palestra', ['gym', 'fitness', 'workout', 'training', 'crossfit', 'palestra', 'allenamento', 'personal trainer']),
+        ('hotel/hospitality', ['hotel', 'resort', 'bed and breakfast', 'b&b', 'hospitality', 'accommodation', 'albergo']),
+        ('immobiliare', ['real estate', 'property', 'realty', 'immobil', 'appartament', 'affitto', 'vendita casa']),
+        ('educazione', ['school', 'education', 'university', 'academy', 'course', 'scuola', 'universita', 'formazione']),
+        ('tecnologia/software', ['software', 'saas', 'platform', 'app', 'tech company', 'startup', 'cloud']),
+        ('agenzia marketing', ['marketing agency', 'digital agency', 'seo', 'advertising', 'branding', 'agenzia marketing']),
+        ('consulenza', ['consulting', 'consultant', 'advisory', 'consulenza', 'consulente']),
+        ('architettura/design', ['architect', 'interior design', 'architettura', 'progettazione', 'design studio']),
+        ('fotografo', ['photography', 'photographer', 'photo studio', 'fotografo', 'fotografia', 'shooting']),
+        ('e-commerce', ['shop', 'store', 'ecommerce', 'buy now', 'cart', 'checkout', 'acquista', 'carrello', 'negozio online']),
+    ]
+
+    for industry, keywords in industries:
         if any(kw in html_lower for kw in keywords):
             info['industry'] = industry
             break
@@ -799,6 +804,9 @@ def generate_business_narrative(business, url, lang='it'):
                 narrative += f"L'azienda offre i seguenti servizi/sezioni: {', '.join(services_clean)}. "
 
         industry_context = {
+            'barbiere': "Il sito deve trasmettere stile maschile, precisione e artigianalita. Il tono deve essere cool e moderno, mostrando tagli impeccabili, barbe curate e un'atmosfera da barbershop autentico.",
+            'parrucchiere/salone': "Il sito deve trasmettere creativita, tendenze e cura dei capelli. Deve mostrare i tagli e le acconciature in modo attraente, comunicare professionalita e facilitare le prenotazioni.",
+            'salone bellezza/spa': "Il sito deve trasmettere eleganza, relax e benessere. Deve creare un'atmosfera di lusso e cura personale, mostrando i trattamenti e facilitare le prenotazioni.",
             'veterinario': "Il sito deve trasmettere cura, professionalita medica e amore per gli animali. Il tono deve essere rassicurante per i proprietari di animali domestici, mostrando competenza veterinaria e empatia.",
             'ristorante': "Il sito deve stimolare l'appetito e trasmettere l'atmosfera del locale. Deve mostrare il menu in modo appetitoso e facilitare le prenotazioni.",
             'e-commerce': "Il sito deve facilitare gli acquisti, mostrare i prodotti in modo attraente e costruire fiducia per le transazioni online.",
@@ -813,7 +821,6 @@ def generate_business_narrative(business, url, lang='it'):
             'consulenza': "Il sito deve trasmettere esperienza e competenza, mostrando risultati e casi di successo.",
             'architettura/design': "Il sito deve essere visivamente impressionante, mostrando il portfolio di progetti in modo elegante.",
             'fotografo': "Il sito deve mettere in risalto le foto come protagoniste, con un design minimale che non distragga.",
-            'salone bellezza': "Il sito deve trasmettere eleganza, cura e benessere. Deve mostrare i trattamenti e facilitare le prenotazioni.",
         }
         default_context = "Il sito deve comunicare professionalita, affidabilita e competenza nel proprio settore."
     else:
@@ -828,6 +835,9 @@ def generate_business_narrative(business, url, lang='it'):
                 narrative += f"The company offers the following services/sections: {', '.join(services_clean)}. "
 
         industry_context = {
+            'barbiere': "The website should convey masculine style, precision and craftsmanship. The tone should be cool and modern, showcasing impeccable cuts, well-groomed beards and an authentic barbershop atmosphere.",
+            'parrucchiere/salone': "The website should convey creativity, trends and hair care. It should showcase cuts and hairstyles attractively, communicate professionalism and make booking easy.",
+            'salone bellezza/spa': "The website should convey elegance, relaxation and wellness. It should create a luxury atmosphere of personal care, showcasing treatments and making booking easy.",
             'veterinario': "The website should convey care, medical professionalism and love for animals. The tone should be reassuring for pet owners, showing veterinary expertise and empathy.",
             'ristorante': "The website should stimulate appetite and convey the restaurant's atmosphere. It should showcase the menu appetizingly and make reservations easy.",
             'e-commerce': "The website should facilitate purchases, showcase products attractively and build trust for online transactions.",
@@ -842,7 +852,6 @@ def generate_business_narrative(business, url, lang='it'):
             'consulenza': "The website should convey experience and expertise, showing results and success stories.",
             'architettura/design': "The website should be visually impressive, showcasing the project portfolio elegantly.",
             'fotografo': "The website should highlight photos as the main feature, with a minimal design that doesn't distract.",
-            'salone bellezza': "The website should convey elegance, care and wellness. It should showcase treatments and make booking easy.",
         }
         default_context = "The website should communicate professionalism, reliability and expertise in its sector."
 
