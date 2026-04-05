@@ -104,39 +104,86 @@ def find_logo(soup, base_url):
         'found': False
     }
 
-    # Cerca immagini con "logo" nel nome, class, id o alt
-    logo_patterns = ['logo', 'brand', 'site-logo', 'header-logo']
+    # Pattern per trovare il logo (in ordine di priorita)
+    logo_patterns = ['logo', 'brand', 'site-logo', 'header-logo', 'main-logo', 'company-logo', 'navbar-brand']
 
+    # 1. Cerca immagini con "logo" nel src, class, id o alt
     for img in soup.find_all('img'):
         src = img.get('src', '')
+        if not src or src.startswith('data:'):  # Salta immagini vuote o base64 troppo piccole
+            continue
+
         alt = img.get('alt', '').lower()
         img_class = ' '.join(img.get('class', [])).lower() if img.get('class') else ''
         img_id = (img.get('id') or '').lower()
+        parent_class = ''
+        if img.parent:
+            parent_class = ' '.join(img.parent.get('class', [])).lower() if img.parent.get('class') else ''
 
-        if any(p in src.lower() or p in alt or p in img_class or p in img_id for p in logo_patterns):
-            logo_info['url'] = urljoin(base_url, src)
-            logo_info['found'] = True
-            break
+        # Controlla se qualche pattern matcha
+        all_attrs = f"{src.lower()} {alt} {img_class} {img_id} {parent_class}"
+        if any(p in all_attrs for p in logo_patterns):
+            full_url = urljoin(base_url, src)
+            # Verifica che l'URL sia valido (non vuoto, non placeholder)
+            if full_url and 'placeholder' not in full_url.lower() and len(full_url) > 10:
+                logo_info['url'] = full_url
+                logo_info['found'] = True
+                break
 
-    # Fallback: cerca nel header la prima immagine
+    # 2. Cerca SVG con class/id logo
     if not logo_info['found']:
-        header = soup.find('header') or soup.find('nav')
-        if header:
-            first_img = header.find('img')
-            if first_img and first_img.get('src'):
-                logo_info['url'] = urljoin(base_url, first_img['src'])
+        for svg in soup.find_all('svg'):
+            svg_class = ' '.join(svg.get('class', [])).lower() if svg.get('class') else ''
+            svg_id = (svg.get('id') or '').lower()
+            if any(p in svg_class or p in svg_id for p in logo_patterns):
+                # SVG trovato ma non possiamo estrarre URL, segnaliamo che esiste ma non e' estraibile
+                logo_info['found'] = False
+                logo_info['url'] = None
+                break
+
+    # 3. Cerca nel header/nav la prima immagine significativa
+    if not logo_info['found']:
+        for container in [soup.find('header'), soup.find('nav'), soup.find(class_=re.compile(r'header|navbar', re.I))]:
+            if container:
+                for img in container.find_all('img'):
+                    src = img.get('src', '')
+                    if src and not src.startswith('data:') and 'placeholder' not in src.lower():
+                        full_url = urljoin(base_url, src)
+                        if len(full_url) > 10:
+                            logo_info['url'] = full_url
+                            logo_info['found'] = True
+                            break
+                if logo_info['found']:
+                    break
+
+    # 4. Cerca Open Graph image come fallback (spesso e' il logo)
+    if not logo_info['found']:
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            content = og_image['content']
+            if 'logo' in content.lower():
+                logo_info['url'] = urljoin(base_url, content)
                 logo_info['found'] = True
 
-    # Fallback: favicon/apple-touch-icon
+    # 5. Ultimo fallback: apple-touch-icon (di solito e' il logo)
     if not logo_info['found']:
         for link in soup.find_all('link', rel=True):
             rel = ' '.join(link.get('rel', []))
-            if 'icon' in rel or 'apple-touch' in rel:
+            if 'apple-touch-icon' in rel:
                 href = link.get('href')
                 if href:
                     logo_info['url'] = urljoin(base_url, href)
                     logo_info['found'] = True
                     break
+
+    # Validazione finale: assicurati che l'URL sia completo e valido
+    if logo_info['found'] and logo_info['url']:
+        if not logo_info['url'].startswith(('http://', 'https://')):
+            logo_info['url'] = urljoin(base_url, logo_info['url'])
+        # Se l'URL e' troppo corto o sembra invalido, segnala come non trovato
+        if len(logo_info['url']) < 15 or logo_info['url'].endswith('/'):
+            logo_info['found'] = False
+            logo_info['url'] = None
 
     return logo_info
 
@@ -460,11 +507,11 @@ HTML_TEMPLATE = """
                 <div id="businessInfo" style="line-height: 1.8;"></div>
             </div>
 
-            <div class="report-card" id="logoCard" style="display: none;">
-                <h3>Logo Trovato</h3>
-                <div style="display: flex; align-items: center; gap: 20px;">
-                    <img id="logoImg" src="" alt="Logo" style="max-height: 80px; max-width: 200px; background: #fff; padding: 10px; border-radius: 8px;">
-                    <p style="color: #888; font-size: 0.9rem;">I colori del logo verranno usati come base per la palette del sito</p>
+            <div class="report-card" id="logoCard">
+                <h3>Logo</h3>
+                <div id="logoContent" style="display: flex; align-items: center; gap: 20px;">
+                    <img id="logoImg" src="" alt="Logo" style="max-height: 80px; max-width: 200px; background: #fff; padding: 10px; border-radius: 8px; display: none;">
+                    <p id="logoText" style="color: #888; font-size: 0.9rem;"></p>
                 </div>
             </div>
 
@@ -502,8 +549,9 @@ HTML_TEMPLATE = """
                 errorUrl: 'Inserisci un URL valido',
                 errorConnection: 'Errore di connessione',
                 businessInfo: 'Informazioni Business',
-                logoFound: 'Logo Trovato',
-                logoColors: 'I colori del logo verranno usati come base per la palette del sito',
+                logo: 'Logo',
+                logoFound: 'I colori del logo verranno usati come base per la palette del sito',
+                logoNotFound: 'Logo non trovato',
                 structure: 'Struttura Rilevata',
                 features: 'Funzionalita Rilevate',
                 promptTitle: 'Prompt per Lovable',
@@ -526,8 +574,9 @@ HTML_TEMPLATE = """
                 errorUrl: 'Please enter a valid URL',
                 errorConnection: 'Connection error',
                 businessInfo: 'Business Information',
-                logoFound: 'Logo Found',
-                logoColors: 'Logo colors will be used as the base for the site palette',
+                logo: 'Logo',
+                logoFound: 'Logo colors will be used as the base for the site palette',
+                logoNotFound: 'Logo not found',
                 structure: 'Detected Structure',
                 features: 'Detected Features',
                 promptTitle: 'Prompt for Lovable',
@@ -558,8 +607,7 @@ HTML_TEMPLATE = """
             document.getElementById('analyzeBtn').textContent = t.analyze;
             document.querySelector('.loading p').textContent = t.analyzing;
             document.querySelector('#results .report-card:nth-child(1) h3').textContent = t.businessInfo;
-            document.querySelector('#logoCard h3').textContent = t.logoFound;
-            document.querySelector('#logoCard p').textContent = t.logoColors;
+            document.querySelector('#logoCard h3').textContent = t.logo;
             document.querySelector('#results .report-card:nth-child(3) h3').textContent = t.structure;
             document.querySelector('#results .report-card:nth-child(4) h3').textContent = t.features;
             document.querySelector('.prompt-header h3').textContent = t.promptTitle;
@@ -625,13 +673,22 @@ HTML_TEMPLATE = """
             businessInfo.innerHTML = businessHtml || `<div style="color:#888">${t.notAvailable}</div>`;
 
             // Logo
-            const logoCard = document.getElementById('logoCard');
             const logoImg = document.getElementById('logoImg');
+            const logoText = document.getElementById('logoText');
             if (data.logo && data.logo.found && data.logo.url) {
                 logoImg.src = data.logo.url;
-                logoCard.style.display = 'block';
+                logoImg.style.display = 'block';
+                logoImg.onerror = function() {
+                    this.style.display = 'none';
+                    logoText.textContent = t.logoNotFound + ' - ' + (currentLang === 'it' ? 'impossibile caricare immagine' : 'unable to load image');
+                    logoText.style.color = '#e74c3c';
+                };
+                logoText.textContent = t.logoFound;
+                logoText.style.color = '#888';
             } else {
-                logoCard.style.display = 'none';
+                logoImg.style.display = 'none';
+                logoText.textContent = t.logoNotFound;
+                logoText.style.color = '#e74c3c';
             }
 
             // Stats
